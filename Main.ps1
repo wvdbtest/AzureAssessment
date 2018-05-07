@@ -87,6 +87,9 @@ Function Read-Choice
 	Return $selectedAzureSubscription
 }
 
+# Start timer
+$stopWatch = [System.Diagnostics.Stopwatch]::StartNew()
+
 # Import the AzureRM module, end script when not OK
 Write-Host -ForeGroundColor Yellow "Importing the AzureRM module"
 Import-Module AzureRM -ErrorAction Stop
@@ -95,19 +98,20 @@ Import-Module AzureRM -ErrorAction Stop
 Write-Host -ForeGroundColor Yellow "Please login to Azure first"
 Connect-AzureRmAccount -ErrorAction Stop
 
-# Check Azure Subcriptions
+# Check and Display the Azure Subcriptions
 [array]$azureSubscriptions = @(Get-AzureRmSubscription)
+$azureSubscriptions
 
 # When multiple, select the appropriate Azure subscription in a Choice Menu
 if ($azureSubscriptions.Count -gt 1)
 {
 	Write-Host -ForeGroundColor Yellow "Please Select the appropriate Azure Subscription by entering the choice number."
 	
-	# Display objects (will be Subscription Ids) in the Shell
-	$azureSubscriptions | % {$Id = 0} {"$Id : $_"; $ID++}
+	# Display objects in the Shell (will be the Subscription Ids)
+	$azureSubscriptions | % {$Id = 0} {"$Id : $_"; $Id++}
 	
 	# Prompt for Choice
-	$azureSubscription = $azureSubscriptions[(Read-Choice -Message " " -Choices (0..($ID -1)) -DefaultChoice ($ID -1))]
+	$azureSubscription = $azureSubscriptions[(Read-Choice -Message " " -Choices (0..($Id -1)) -DefaultChoice ($Id -1))]
 }
 else
 {
@@ -174,13 +178,13 @@ Write-Host -ForeGroundColor Yellow "Collecting Allowed Resource Types"
 
 # First check if the policy definition already exists, this determines the cmdlet to change the policyrules
 Write-Host -ForeGroundColor Yellow "Checking if Policy Defintion already exists"
-Get-AzureRmPolicyDefinition -ErrorAction SilentlyContinue -ErrorVariable policyDefinitionNonPresent -Name "custom-allowed-resourcetypes"
+$policyDefinition = Get-AzureRmPolicyDefinition | Where-Object {$_.Name -eq "custom-allowed-resourcetypes"}
 
-# Now prepare the Custom Policy Definition from Template and Parameters File. Remark: New-AzureRmPolicyDefinition does not have a -Scope parameter yet
-if ($policyDefinitionNonPresent)
+# Now prepare the Custom Policy Definition from Template and Parameter File. Remark: New-AzureRmPolicyDefinition does not have a -Scope parameter yet
+if (!$policyDefinition)
 {
 	Write-Host -ForeGroundColor Yellow "Creating new Policy Definition"
-	$policyDefinition = New-AzureRmPolicyDefinition -ErrorAction Stop -ErrorVariable policyDefinitionFailed -Name "custom-allowed-resourcetypes" -DisplayName "Custom Allowed Resource Types" -Description "This policy enables you to specify the resource types that your organization can deploy." -Policy $policyTemplateFile -Parameter $policyTemplateParameterFile -Mode All
+	$policyDefinition = New-AzureRmPolicyDefinition -ErrorAction Stop -ErrorVariable policyDefinitionFailed -Name "custom-allowed-resourcetypes" -DisplayName "Custom Allowed Resource Types" -Description "This policy enables you to specify the resource types that your organization can deploy." -Policy $policyTemplateFile -Parameter $policyTemplateParameterFile
 }
 else
 {
@@ -203,3 +207,7 @@ else
 # Log Off from Azure
 Write-Host -ForeGroundColor Yellow "Logging out from Azure"
 Disconnect-AzureRmAccount
+
+# Stop timer and show elapsed time
+$stopWatch.Stop()
+"Elapsed time: {0:00} hours, {1:00} minutes, {2:00} seconds, {3:000} milliseconds" -f $stopWatch.Elapsed.Hours, $stopWatch.Elapsed.Minutes, $stopWatch.Elapsed.Seconds, $stopWatch.Elapsed.Milliseconds
