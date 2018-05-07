@@ -1,10 +1,22 @@
 # Requires Version 5
 
 # Functions
+Function Get-AzureRmResourceTypes
+{
+	Param(
+	[Parameter(Mandatory=$true)]
+	[string]$providerNameSpace
+	)
+	(Get-AzureRmResourceProvider | Where-Object {$_.ProviderNameSpace -eq $providerNameSpace}).ResourceTypes | ForEach-Object {$providerNameSpace + "/" + $_.ResourceTypeName}
+}
 
 # Local Template and Parameter File with Resources to Deploy 
 [string]$templateFile = "C:\Bin\Scripts\AzureRM\Assessment\Templates\resourcesdeploy.json"
 [string]$templateParameterFile = "C:\Bin\Scripts\AzureRM\Assessment\Parameters\resourcesdeploy.parameters.json"
+
+# Local Template and Parameter File with Resource Policy to define and assign
+[string]$policyTemplateFile = "C:\Bin\Scripts\Azure\Assessment\Policies\resourcespolicy.json"
+[string]$policyTemplateParameterFile = "C:\Bin\Scripts\Azure\Assessment\Parameters\resourcespolicy.parameters.json"
 
 # Other Script Variables
 [string]$resourceGroupName = "Assessment-RG"
@@ -48,6 +60,26 @@ Test-AzureRmResourceGroupDeployment -ErrorAction Stop -ResourceGroupName $resour
 Write-Host -ForeGroundColor Green "Executing Deployment for Storage Account in $resourceGroupName"
 New-AzureRmResourceGroupDeployment -ErrorAction Stop -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $templateFile -TemplateParameterFile $templateParameterFile
 
+# Register ResourceProvider NameSpace "PolicyInsights". Registering this resource provider makes sure that your subscription works with it.
+Write-Host -ForeGroundColor Green "Registering AzureRmResourceProvider for $($azureSubscription.Id)"
+Register-AzureRmResourceProvider -ErrorAction Stop -ProviderNamespace Microsoft.PolicyInsights
+
+# Create Policy Assignment Scope
+[string]$assignmentScope = "/subscriptions/$($azureSubscription.SubscriptionId)" 
+
+# Collect all Allowed Resource Provider Namespaces (visible from this location) in an array
+Write-Host -ForeGroundColor Green "Collecting Allowed Resource Types"
+[array]$allowedResourceTypes = @(Get-AzureRmResourceTypes -ProviderNamespace "Microsoft.Compute")
+[array]$allowedResourceTypes += @(Get-AzureRmResourceTypes -ProviderNamespace "Microsoft.Storage")
+
+# Now Create a Custom Policy Definition from Template and Parameter File
+Write-Host -ForeGroundColor Green "Creating a new Policy Definition"
+$policyDefinition = New-AzureRmPolicyDefinition -Name "allowed-resourcetypes" -DisplayName "Allowed resource types" -Description "This policy enables you to specify the resource types that your organization can deploy." -Policy $policyTemplateFile -Parameter $policyTemplateParameterFile -Mode All
+
+# Param the AllowedResourceTypes array in the policy assignment for the given Scope
+Write-Host -ForeGroundColor Green "Assigning the Policy Definition"
+New-AzureRMPolicyAssignment -ErrorAction Stop -Name "Allow Microsoft.Compute and Microsoft.Storage" -Scope $assignmentScope -PolicyDefinition $policyDefinition -listOfResourceTypesAllowed $allowedResourceTypes
+
 # Log Off from Azure
 Write-Host -ForeGroundColor Green "Logging out from Azure"
-# Disconnect-AzureRmAccount
+Disconnect-AzureRmAccount
