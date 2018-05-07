@@ -2,20 +2,28 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "storageAccountNamePrefix": {
+     "storageAccountNamePrefix": {
       "type": "string"
       },
-      "storageAccountType": {
+	  "storageAccountType": {
       "type": "string",
       "defaultValue": "Standard_LRS",
       "allowedValues": [
         "Standard_LRS",
         "Standard_GRS",
+        "Standard_RAGRS",
         "Standard_ZRS",
         "Premium_LRS"
       ],
       "metadata": {
-        "description": "Storage Account type"
+        "description": "Storage Account type."
+      }
+    },
+    "blobEncryptionEnabled": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Enable or disable Blob encryption at Rest."
       }
     }
   },
@@ -24,21 +32,20 @@
   },
   "resources": [
     {
-      "name": "[variables('storageAccountName')]",
       "type": "Microsoft.Storage/storageAccounts",
-      "apiVersion": "2016-01-01",
+      "name": "[variables('storageAccountName')]",
+      "apiVersion": "2016-12-01",
+      "location": "[resourceGroup().location]",
       "sku": {
         "name": "[parameters('storageAccountType')]"
       },
       "kind": "Storage",
-      "location": "[resourceGroup().location]",
-      "tags": {},
       "properties": {
         "encryption": {
           "keySource": "Microsoft.Storage",
           "services": {
             "blob": {
-              "enabled": true
+              "enabled": "[parameters('blobEncryptionEnabled')]"
             }
           }
         }
