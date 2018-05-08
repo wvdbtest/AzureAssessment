@@ -1,4 +1,5 @@
-# Requires Version 5
+#Requires -Version 5
+#Requires -Modules AzureRM
 
 <#
 .SYNOPSIS 
@@ -44,12 +45,12 @@ Param(
 [string]$templateFile,
 [Parameter(Mandatory=$true)]
 [string]$templateParameterFile,
-[Parameter(Mandatory=$false)]
-[string]$location="West Europe",
 [Parameter(Mandatory=$true)]
 [string]$policyTemplateFile,
 [Parameter(Mandatory=$true)]
-[string]$policyTemplateParameterFile
+[string]$policyTemplateParameterFile,
+[Parameter(Mandatory=$false)]
+[string]$location="West Europe"
 )
 
 # Functions
